@@ -66,16 +66,9 @@ export function Setup() {
     {
       id: 'database',
       title: 'Подключение к базе данных',
-      description: 'Проверка соединения с Supabase',
+      description: 'Настройка подключения к Supabase',
       completed: false,
       required: true
-    },
-    {
-      id: 'database-management',
-      title: 'Управление базой данных',
-      description: 'Настройка подключения и создание таблиц',
-      completed: false,
-      required: false
     },
     {
       id: 'admin',
@@ -224,7 +217,7 @@ export function Setup() {
         description: 'Администратор создан успешно',
       });
       
-      setCurrentStep(3); // Переход к настройке ИИ
+      setCurrentStep(2); // Переход к настройке ИИ
     } catch (error: any) {
       console.error('Admin creation failed:', error);
       toast({
@@ -288,7 +281,7 @@ export function Setup() {
         description: 'Настройки ИИ сохранены',
       });
       
-      setCurrentStep(4); // Переход к настройке компании
+      setCurrentStep(3); // Переход к настройке компании
     } catch (error: any) {
       console.error('AI config save failed:', error);
       toast({
@@ -348,74 +341,19 @@ export function Setup() {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Database className="mr-2 h-5 w-5" />
-                Подключение к базе данных
+                Настройка подключения к базе данных
               </CardTitle>
               <CardDescription>
-                Проверка соединения с Supabase и настройка базы данных
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <p className="font-medium">Статус подключения</p>
-                  <p className="text-sm text-gray-600">Supabase Database</p>
-                </div>
-                <div className="flex items-center">
-                  {loading ? (
-                    <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-                  ) : dbConnected ? (
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <XCircle className="h-5 w-5 text-red-500" />
-                  )}
-                  <span className="ml-2">
-                    {loading ? 'Проверка...' : dbConnected ? 'Подключено' : 'Ошибка'}
-                  </span>
-                </div>
-              </div>
-              
-              <div className="flex justify-between">
-                <Button
-                  variant="outline"
-                  onClick={testDatabaseConnection}
-                  disabled={loading}
-                >
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Повторить тест
-                </Button>
-                <Button
-                  onClick={() => setCurrentStep(1)}
-                  disabled={!dbConnected}
-                >
-                  Далее
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        );
-
-      case 1: // Database Management
-        return (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Server className="mr-2 h-5 w-5" />
-                Управление базой данных
-              </CardTitle>
-              <CardDescription>
-                Настройка подключения к Supabase и создание таблиц
+                Подключение к Supabase, создание таблиц и настройка Node.js проекта
               </CardDescription>
             </CardHeader>
             <CardContent>
               <DatabaseConnector />
               
-              <div className="flex justify-between mt-6">
-                <Button variant="outline" onClick={() => setCurrentStep(0)}>
-                  Назад
-                </Button>
+              <div className="flex justify-end mt-6">
                 <Button onClick={() => {
-                  updateStepStatus('database-management', true);
-                  setCurrentStep(2);
+                  updateStepStatus('database', true);
+                  setCurrentStep(1);
                 }}>
                   Далее
                 </Button>
@@ -424,7 +362,7 @@ export function Setup() {
           </Card>
         );
 
-      case 2: // Admin Creation
+      case 1: // Admin Creation
         return (
           <Card>
             <CardHeader>
@@ -491,7 +429,7 @@ export function Setup() {
               </div>
               
               <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setCurrentStep(1)}>
+                <Button variant="outline" onClick={() => setCurrentStep(0)}>
                   Назад
                 </Button>
                 <Button onClick={createAdmin} disabled={loading}>
@@ -503,7 +441,7 @@ export function Setup() {
           </Card>
         );
 
-      case 3: // AI Configuration
+      case 2: // AI Configuration
         return (
           <Card>
             <CardHeader>
@@ -561,7 +499,7 @@ export function Setup() {
               </div>
               
               <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setCurrentStep(2)}>
+                <Button variant="outline" onClick={() => setCurrentStep(1)}>
                   Назад
                 </Button>
                 <Button onClick={saveAIConfig} disabled={loading}>
@@ -573,7 +511,7 @@ export function Setup() {
           </Card>
         );
 
-      case 4: // Company Settings
+      case 3: // Company Settings
         return (
           <Card>
             <CardHeader>
@@ -617,7 +555,7 @@ export function Setup() {
               </div>
               
               <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setCurrentStep(3)}>
+                <Button variant="outline" onClick={() => setCurrentStep(2)}>
                   Назад
                 </Button>
                 <Button onClick={completeSetup} disabled={loading}>
