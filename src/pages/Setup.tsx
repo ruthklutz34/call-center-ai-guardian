@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { DatabaseConnector } from '@/components/setup/DatabaseConnector';
 import { 
   Database, 
   User, 
@@ -17,7 +17,8 @@ import {
   XCircle, 
   Loader2,
   Brain,
-  Building
+  Building,
+  Server
 } from 'lucide-react';
 
 interface SetupStep {
@@ -68,6 +69,13 @@ export function Setup() {
       description: 'Проверка соединения с Supabase',
       completed: false,
       required: true
+    },
+    {
+      id: 'database-management',
+      title: 'Управление базой данных',
+      description: 'Настройка подключения и создание таблиц',
+      completed: false,
+      required: false
     },
     {
       id: 'admin',
@@ -216,7 +224,7 @@ export function Setup() {
         description: 'Администратор создан успешно',
       });
       
-      setCurrentStep(2); // Переход к настройке ИИ
+      setCurrentStep(3); // Переход к настройке ИИ
     } catch (error: any) {
       console.error('Admin creation failed:', error);
       toast({
@@ -280,7 +288,7 @@ export function Setup() {
         description: 'Настройки ИИ сохранены',
       });
       
-      setCurrentStep(3); // Переход к настройке компании
+      setCurrentStep(4); // Переход к настройке компании
     } catch (error: any) {
       console.error('AI config save failed:', error);
       toast({
@@ -386,7 +394,37 @@ export function Setup() {
           </Card>
         );
 
-      case 1: // Admin Creation
+      case 1: // Database Management
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Server className="mr-2 h-5 w-5" />
+                Управление базой данных
+              </CardTitle>
+              <CardDescription>
+                Настройка подключения к Supabase и создание таблиц
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DatabaseConnector />
+              
+              <div className="flex justify-between mt-6">
+                <Button variant="outline" onClick={() => setCurrentStep(0)}>
+                  Назад
+                </Button>
+                <Button onClick={() => {
+                  updateStepStatus('database-management', true);
+                  setCurrentStep(2);
+                }}>
+                  Далее
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      case 2: // Admin Creation
         return (
           <Card>
             <CardHeader>
@@ -453,7 +491,7 @@ export function Setup() {
               </div>
               
               <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setCurrentStep(0)}>
+                <Button variant="outline" onClick={() => setCurrentStep(1)}>
                   Назад
                 </Button>
                 <Button onClick={createAdmin} disabled={loading}>
@@ -465,7 +503,7 @@ export function Setup() {
           </Card>
         );
 
-      case 2: // AI Configuration
+      case 3: // AI Configuration
         return (
           <Card>
             <CardHeader>
@@ -523,7 +561,7 @@ export function Setup() {
               </div>
               
               <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setCurrentStep(1)}>
+                <Button variant="outline" onClick={() => setCurrentStep(2)}>
                   Назад
                 </Button>
                 <Button onClick={saveAIConfig} disabled={loading}>
@@ -535,7 +573,7 @@ export function Setup() {
           </Card>
         );
 
-      case 3: // Company Settings
+      case 4: // Company Settings
         return (
           <Card>
             <CardHeader>
@@ -579,7 +617,7 @@ export function Setup() {
               </div>
               
               <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setCurrentStep(2)}>
+                <Button variant="outline" onClick={() => setCurrentStep(3)}>
                   Назад
                 </Button>
                 <Button onClick={completeSetup} disabled={loading}>
