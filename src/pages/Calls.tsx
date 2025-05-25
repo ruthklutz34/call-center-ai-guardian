@@ -1,15 +1,12 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { CallUploadDialog } from '@/components/calls/CallUploadDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Phone, Clock, Calendar, Upload, Play, FileText } from 'lucide-react';
+import { Phone, Clock, Calendar, Play, FileText } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Call = Tables<'calls'> & {
@@ -27,13 +24,6 @@ const statusLabels = {
 
 export function Calls() {
   const [calls, setCalls] = useState<Call[]>([]);
-  const [isUploadOpen, setIsUploadOpen] = useState(false);
-  const [uploadForm, setUploadForm] = useState({
-    agent_name: '',
-    phone_number: '',
-    duration: '',
-    transcript: '',
-  });
 
   useEffect(() => {
     fetchCalls();
@@ -57,62 +47,6 @@ export function Calls() {
       toast({
         title: 'Ошибка',
         description: 'Не удалось загрузить звонки',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleUpload = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      // Сначала создаем агента, если его нет
-      let agentId = null;
-      if (uploadForm.agent_name) {
-        const { data: existingAgent } = await supabase
-          .from('profiles')
-          .select('id')
-          .ilike('first_name', `%${uploadForm.agent_name}%`)
-          .single();
-
-        if (existingAgent) {
-          agentId = existingAgent.id;
-        }
-      }
-
-      const callData = {
-        agent_id: agentId,
-        phone_number: uploadForm.phone_number,
-        duration: uploadForm.duration ? parseInt(uploadForm.duration) : null,
-        transcript: uploadForm.transcript,
-        status: 'completed' as const,
-        company_id: '00000000-0000-0000-0000-000000000000', // Временно
-      };
-
-      const { error } = await supabase
-        .from('calls')
-        .insert([callData]);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Успешно',
-        description: 'Звонок загружен',
-      });
-
-      setIsUploadOpen(false);
-      setUploadForm({
-        agent_name: '',
-        phone_number: '',
-        duration: '',
-        transcript: '',
-      });
-      fetchCalls();
-    } catch (error) {
-      console.error('Error uploading call:', error);
-      toast({
-        title: 'Ошибка',
-        description: 'Не удалось загрузить звонок',
         variant: 'destructive',
       });
     }
@@ -143,82 +77,16 @@ export function Calls() {
           <p className="text-gray-600 mt-1">Управление и анализ телефонных звонков</p>
         </div>
         
-        <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Upload className="mr-2 h-4 w-4" />
-              Загрузить звонок
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Загрузить звонок</DialogTitle>
-              <DialogDescription>
-                Добавьте новый звонок для анализа
-              </DialogDescription>
-            </DialogHeader>
-            
-            <form onSubmit={handleUpload} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="agent_name">Имя агента</Label>
-                  <Input
-                    id="agent_name"
-                    value={uploadForm.agent_name}
-                    onChange={(e) => setUploadForm({ ...uploadForm, agent_name: e.target.value })}
-                    placeholder="Иван Петров"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="phone_number">Номер телефона</Label>
-                  <Input
-                    id="phone_number"
-                    value={uploadForm.phone_number}
-                    onChange={(e) => setUploadForm({ ...uploadForm, phone_number: e.target.value })}
-                    placeholder="+7 (999) 123-45-67"
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="duration">Длительность (секунды)</Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  value={uploadForm.duration}
-                  onChange={(e) => setUploadForm({ ...uploadForm, duration: e.target.value })}
-                  placeholder="180"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="transcript">Транскрипт разговора</Label>
-                <Textarea
-                  id="transcript"
-                  value={uploadForm.transcript}
-                  onChange={(e) => setUploadForm({ ...uploadForm, transcript: e.target.value })}
-                  placeholder="Введите текст разговора..."
-                  rows={8}
-                  required
-                />
-              </div>
-              
-              <div className="flex justify-end space-x-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => setIsUploadOpen(false)}>
-                  Отмена
-                </Button>
-                <Button type="submit">Загрузить</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <CallUploadDialog onUploadComplete={fetchCalls} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {calls.map((call) => {
           const status = statusLabels[call.status || 'pending'];
           const score = call.call_scores?.[0]?.total_score;
+          const agentName = call.agent 
+            ? `${call.agent.first_name} ${call.agent.last_name}`
+            : (call.metadata as any)?.agent_name || 'Агент не указан';
           
           return (
             <Card key={call.id} className="hover:shadow-lg transition-shadow">
@@ -230,7 +98,7 @@ export function Calls() {
                       {call.phone_number || 'Неизвестный номер'}
                     </CardTitle>
                     <CardDescription>
-                      {call.agent ? `${call.agent.first_name} ${call.agent.last_name}` : 'Агент не указан'}
+                      {agentName}
                     </CardDescription>
                   </div>
                   <Badge className={status.color}>

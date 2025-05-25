@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,6 +11,9 @@ import { Dashboard } from "./pages/Dashboard";
 import { Calls } from "./pages/Calls";
 import { Reports } from "./pages/Reports";
 import { Rules } from "./pages/Rules";
+import { Knowledge } from "./pages/Knowledge";
+import { Employees } from "./pages/Employees";
+import { Company } from "./pages/Company";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -71,26 +73,17 @@ const App = () => (
           } />
           <Route path="/knowledge" element={
             <ProtectedRoute>
-              <div className="p-8 text-center">
-                <h1 className="text-2xl font-bold mb-4">База знаний</h1>
-                <p className="text-gray-600">Раздел в разработке</p>
-              </div>
+              <Knowledge />
             </ProtectedRoute>
           } />
           <Route path="/employees" element={
             <ProtectedRoute>
-              <div className="p-8 text-center">
-                <h1 className="text-2xl font-bold mb-4">Сотрудники</h1>
-                <p className="text-gray-600">Раздел в разработке</p>
-              </div>
+              <Employees />
             </ProtectedRoute>
           } />
           <Route path="/company" element={
             <ProtectedRoute>
-              <div className="p-8 text-center">
-                <h1 className="text-2xl font-bold mb-4">Настройки компании</h1>
-                <p className="text-gray-600">Раздел в разработке</p>
-              </div>
+              <Company />
             </ProtectedRoute>
           } />
           <Route path="*" element={<NotFound />} />
