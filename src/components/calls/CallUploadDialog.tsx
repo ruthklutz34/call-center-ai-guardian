@@ -4,126 +4,138 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Upload, Link, FileAudio, Plus } from 'lucide-react';
+import { Upload, Link as LinkIcon, Loader2, X } from 'lucide-react';
 
 interface CallUploadDialogProps {
   onUploadComplete: () => void;
 }
 
+interface CallUrl {
+  id: string;
+  url: string;
+  phoneNumber: string;
+  agentName: string;
+}
+
 export function CallUploadDialog({ onUploadComplete }: CallUploadDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  
-  // Форма для ручного ввода
-  const [manualForm, setManualForm] = useState({
-    agent_name: '',
-    phone_number: '',
-    duration: '',
-    transcript: '',
-  });
+  const [loading, setLoading] = useState(false);
+  const [urlList, setUrlList] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [callUrls, setCallUrls] = useState<CallUrl[]>([]);
 
-  // Форма для ссылок
-  const [urlForm, setUrlForm] = useState({
-    urls: '',
-    agent_name: '',
-  });
+  const addUrlToList = () => {
+    const urls = urlList.split('\n').filter(url => url.trim());
+    const newCallUrls: CallUrl[] = urls.map(url => ({
+      id: Math.random().toString(36).substr(2, 9),
+      url: url.trim(),
+      phoneNumber: '',
+      agentName: ''
+    }));
+    setCallUrls(prev => [...prev, ...newCallUrls]);
+    setUrlList('');
+  };
 
-  // Форма для файлов
-  const [files, setFiles] = useState<FileList | null>(null);
-  const [fileAgent, setFileAgent] = useState('');
+  const removeUrl = (id: string) => {
+    setCallUrls(prev => prev.filter(call => call.id !== id));
+  };
 
-  const handleManualSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsUploading(true);
-    
-    try {
-      const callData = {
-        agent_id: null,
-        phone_number: manualForm.phone_number,
-        duration: manualForm.duration ? parseInt(manualForm.duration) : null,
-        transcript: manualForm.transcript,
-        status: 'completed' as const,
-        company_id: 'b0000000-0000-0000-0000-000000000001',
-        metadata: { agent_name: manualForm.agent_name },
-      };
+  const updateCallUrl = (id: string, field: 'phoneNumber' | 'agentName', value: string) => {
+    setCallUrls(prev => prev.map(call => 
+      call.id === id ? { ...call, [field]: value } : call
+    ));
+  };
 
-      const { error } = await supabase
-        .from('calls')
-        .insert([callData]);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Успешно',
-        description: 'Звонок загружен',
-      });
-
-      resetForms();
-      setIsOpen(false);
-      onUploadComplete();
-    } catch (error) {
-      console.error('Error uploading call:', error);
-      toast({
-        title: 'Ошибка',
-        description: 'Не удалось загрузить звонок',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsUploading(false);
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      const files = Array.from(event.target.files);
+      const audioFiles = files.filter(file => 
+        file.type.startsWith('audio/') || 
+        file.name.toLowerCase().endsWith('.mp3') ||
+        file.name.toLowerCase().endsWith('.wav') ||
+        file.name.toLowerCase().endsWith('.m4a')
+      );
+      
+      if (audioFiles.length !== files.length) {
+        toast({
+          title: 'Предупреждение',
+          description: 'Некоторые файлы не являются аудиофайлами и были исключены',
+        });
+      }
+      
+      setSelectedFiles(prev => [...prev, ...audioFiles]);
     }
   };
 
-  const handleUrlSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsUploading(true);
-    
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadFromUrls = async () => {
+    if (callUrls.length === 0) {
+      toast({
+        title: 'Ошибка',
+        description: 'Добавьте хотя бы одну ссылку',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setLoading(true);
     try {
-      const urls = urlForm.urls.split('\n').filter(url => url.trim());
-      const calls = urls.map(url => ({
-        agent_id: null,
-        phone_number: null,
-        audio_url: url.trim(),
-        status: 'pending' as const,
-        company_id: 'b0000000-0000-0000-0000-000000000001',
-        metadata: { 
-          agent_name: urlForm.agent_name,
-          source: 'url_upload'
-        },
-      }));
+      for (const callData of callUrls) {
+        console.log('Uploading call from URL:', callData.url);
+        
+        // Создаем запись звонка
+        const { data: call, error: callError } = await supabase
+          .from('calls')
+          .insert({
+            company_id: 'b0000000-0000-0000-0000-000000000001',
+            phone_number: callData.phoneNumber || 'Не указан',
+            audio_url: callData.url,
+            status: 'pending',
+            metadata: {
+              agent_name: callData.agentName || 'Не указан',
+              upload_method: 'url'
+            }
+          })
+          .select()
+          .single();
 
-      const { error } = await supabase
-        .from('calls')
-        .insert(calls);
+        if (callError) {
+          console.error('Error creating call record:', callError);
+          throw callError;
+        }
 
-      if (error) throw error;
+        console.log('Call record created:', call);
+      }
 
       toast({
         title: 'Успешно',
-        description: `Загружено ${urls.length} звонков по ссылкам`,
+        description: `Загружено ${callUrls.length} звонков`,
       });
 
-      resetForms();
+      setCallUrls([]);
       setIsOpen(false);
       onUploadComplete();
     } catch (error) {
-      console.error('Error uploading calls from URLs:', error);
+      console.error('Error uploading calls:', error);
       toast({
         title: 'Ошибка',
-        description: 'Не удалось загрузить звонки по ссылкам',
+        description: 'Не удалось загрузить звонки',
         variant: 'destructive',
       });
     } finally {
-      setIsUploading(false);
+      setLoading(false);
     }
   };
 
-  const handleFileSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!files || files.length === 0) {
+  const uploadFromFiles = async () => {
+    if (selectedFiles.length === 0) {
       toast({
         title: 'Ошибка',
         description: 'Выберите файлы для загрузки',
@@ -132,52 +144,58 @@ export function CallUploadDialog({ onUploadComplete }: CallUploadDialogProps) {
       return;
     }
 
-    setIsUploading(true);
-    
+    setLoading(true);
     try {
-      const uploadPromises = Array.from(files).map(async (file) => {
+      for (const file of selectedFiles) {
+        console.log('Uploading file:', file.name);
+        
         // Загружаем файл в Supabase Storage
-        const fileName = `${Date.now()}-${file.name}`;
+        const fileName = `calls/${Date.now()}-${file.name}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('call-recordings')
           .upload(fileName, file);
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error('Storage upload error:', uploadError);
+          throw uploadError;
+        }
 
-        // Получаем публичный URL
-        const { data: { publicUrl } } = supabase.storage
+        // Получаем публичную ссылку
+        const { data: urlData } = supabase.storage
           .from('call-recordings')
           .getPublicUrl(fileName);
 
-        // Создаем запись о звонке
-        return {
-          agent_id: null,
-          phone_number: null,
-          audio_url: publicUrl,
-          status: 'pending' as const,
-          company_id: 'b0000000-0000-0000-0000-000000000001',
-          metadata: { 
-            agent_name: fileAgent,
-            source: 'file_upload',
-            original_filename: file.name
-          },
-        };
-      });
+        // Создаем запись звонка
+        const { data: call, error: callError } = await supabase
+          .from('calls')
+          .insert({
+            company_id: 'b0000000-0000-0000-0000-000000000001',
+            phone_number: 'Загружен файл',
+            audio_url: urlData.publicUrl,
+            status: 'pending',
+            metadata: {
+              original_filename: file.name,
+              file_size: file.size,
+              upload_method: 'file'
+            }
+          })
+          .select()
+          .single();
 
-      const callsData = await Promise.all(uploadPromises);
-      
-      const { error } = await supabase
-        .from('calls')
-        .insert(callsData);
+        if (callError) {
+          console.error('Error creating call record:', callError);
+          throw callError;
+        }
 
-      if (error) throw error;
+        console.log('Call record created:', call);
+      }
 
       toast({
         title: 'Успешно',
-        description: `Загружено ${files.length} аудиофайлов`,
+        description: `Загружено ${selectedFiles.length} файлов`,
       });
 
-      resetForms();
+      setSelectedFiles([]);
       setIsOpen(false);
       onUploadComplete();
     } catch (error) {
@@ -188,189 +206,164 @@ export function CallUploadDialog({ onUploadComplete }: CallUploadDialogProps) {
         variant: 'destructive',
       });
     } finally {
-      setIsUploading(false);
+      setLoading(false);
     }
-  };
-
-  const resetForms = () => {
-    setManualForm({
-      agent_name: '',
-      phone_number: '',
-      duration: '',
-      transcript: '',
-    });
-    setUrlForm({
-      urls: '',
-      agent_name: '',
-    });
-    setFiles(null);
-    setFileAgent('');
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button onClick={resetForms}>
-          <Plus className="mr-2 h-4 w-4" />
+        <Button>
+          <Upload className="mr-2 h-4 w-4" />
           Загрузить звонки
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Загрузка звонков</DialogTitle>
           <DialogDescription>
-            Выберите способ загрузки звонков в систему
+            Загрузите аудиозаписи звонков для анализа системой ИИ
           </DialogDescription>
         </DialogHeader>
-        
-        <Tabs defaultValue="manual" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="manual">
-              <Upload className="mr-2 h-4 w-4" />
-              Ручной ввод
-            </TabsTrigger>
-            <TabsTrigger value="urls">
-              <Link className="mr-2 h-4 w-4" />
+
+        <Tabs defaultValue="urls" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="urls" className="flex items-center">
+              <LinkIcon className="mr-2 h-4 w-4" />
               По ссылкам
             </TabsTrigger>
-            <TabsTrigger value="files">
-              <FileAudio className="mr-2 h-4 w-4" />
-              Файлы
+            <TabsTrigger value="files" className="flex items-center">
+              <Upload className="mr-2 h-4 w-4" />
+              Локальные файлы
             </TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="manual">
-            <form onSubmit={handleManualSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="agent_name">Имя агента</Label>
-                  <Input
-                    id="agent_name"
-                    value={manualForm.agent_name}
-                    onChange={(e) => setManualForm({ ...manualForm, agent_name: e.target.value })}
-                    placeholder="Иван Петров"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="phone_number">Номер телефона</Label>
-                  <Input
-                    id="phone_number"
-                    value={manualForm.phone_number}
-                    onChange={(e) => setManualForm({ ...manualForm, phone_number: e.target.value })}
-                    placeholder="+7 (999) 123-45-67"
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="duration">Длительность (секунды)</Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  value={manualForm.duration}
-                  onChange={(e) => setManualForm({ ...manualForm, duration: e.target.value })}
-                  placeholder="180"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="transcript">Транскрипт разговора</Label>
-                <Textarea
-                  id="transcript"
-                  value={manualForm.transcript}
-                  onChange={(e) => setManualForm({ ...manualForm, transcript: e.target.value })}
-                  placeholder="Введите текст разговора..."
-                  rows={8}
-                  required
-                />
-              </div>
-              
-              <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
-                  Отмена
-                </Button>
-                <Button type="submit" disabled={isUploading}>
-                  {isUploading ? 'Загрузка...' : 'Загрузить'}
-                </Button>
-              </div>
-            </form>
-          </TabsContent>
-          
-          <TabsContent value="urls">
-            <form onSubmit={handleUrlSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="agent_name_url">Имя агента (опционально)</Label>
-                <Input
-                  id="agent_name_url"
-                  value={urlForm.agent_name}
-                  onChange={(e) => setUrlForm({ ...urlForm, agent_name: e.target.value })}
-                  placeholder="Иван Петров"
-                />
-              </div>
-              
-              <div className="space-y-2">
+
+          <TabsContent value="urls" className="space-y-4">
+            <div className="space-y-4">
+              <div>
                 <Label htmlFor="urls">Ссылки на аудиофайлы</Label>
                 <Textarea
                   id="urls"
-                  value={urlForm.urls}
-                  onChange={(e) => setUrlForm({ ...urlForm, urls: e.target.value })}
-                  placeholder="https://example.com/call1.mp3&#10;https://example.com/call2.wav&#10;https://example.com/call3.m4a"
-                  rows={8}
-                  required
+                  placeholder="Вставьте ссылки на аудиофайлы (по одной на строку)
+https://example.com/call1.mp3
+https://example.com/call2.wav"
+                  value={urlList}
+                  onChange={(e) => setUrlList(e.target.value)}
+                  rows={4}
                 />
-                <p className="text-sm text-gray-500">
-                  Введите по одной ссылке в строке. Поддерживаются форматы: MP3, WAV, M4A
-                </p>
+                <Button 
+                  onClick={addUrlToList} 
+                  className="mt-2"
+                  disabled={!urlList.trim()}
+                >
+                  Добавить ссылки
+                </Button>
               </div>
-              
+
+              {callUrls.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Список звонков для загрузки</Label>
+                  <div className="max-h-60 overflow-y-auto space-y-2 border rounded-lg p-2">
+                    {callUrls.map((call) => (
+                      <div key={call.id} className="border rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium truncate">{call.url}</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeUrl(call.id)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input
+                            placeholder="Номер телефона"
+                            value={call.phoneNumber}
+                            onChange={(e) => updateCallUrl(call.id, 'phoneNumber', e.target.value)}
+                          />
+                          <Input
+                            placeholder="Имя агента"
+                            value={call.agentName}
+                            onChange={(e) => updateCallUrl(call.id, 'agentName', e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+                <Button variant="outline" onClick={() => setIsOpen(false)}>
                   Отмена
                 </Button>
-                <Button type="submit" disabled={isUploading}>
-                  {isUploading ? 'Загрузка...' : 'Загрузить'}
+                <Button 
+                  onClick={uploadFromUrls} 
+                  disabled={loading || callUrls.length === 0}
+                >
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Загрузить {callUrls.length} звонков
                 </Button>
               </div>
-            </form>
+            </div>
           </TabsContent>
-          
-          <TabsContent value="files">
-            <form onSubmit={handleFileSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="file_agent">Имя агента (опционально)</Label>
+
+          <TabsContent value="files" className="space-y-4">
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="files">Выберите аудиофайлы</Label>
                 <Input
-                  id="file_agent"
-                  value={fileAgent}
-                  onChange={(e) => setFileAgent(e.target.value)}
-                  placeholder="Иван Петров"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="audio_files">Аудиофайлы</Label>
-                <Input
-                  id="audio_files"
+                  id="files"
                   type="file"
                   multiple
-                  accept="audio/*"
-                  onChange={(e) => setFiles(e.target.files)}
-                  required
+                  accept="audio/*,.mp3,.wav,.m4a"
+                  onChange={handleFileSelect}
+                  className="mt-1"
                 />
-                <p className="text-sm text-gray-500">
-                  Выберите один или несколько аудиофайлов. Поддерживаются форматы: MP3, WAV, M4A, OGG
+                <p className="text-sm text-gray-500 mt-1">
+                  Поддерживаемые форматы: MP3, WAV, M4A
                 </p>
               </div>
-              
+
+              {selectedFiles.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Выбранные файлы ({selectedFiles.length})</Label>
+                  <div className="max-h-60 overflow-y-auto space-y-2 border rounded-lg p-2">
+                    {selectedFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 border rounded">
+                        <div>
+                          <p className="text-sm font-medium">{file.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {(file.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeFile(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+                <Button variant="outline" onClick={() => setIsOpen(false)}>
                   Отмена
                 </Button>
-                <Button type="submit" disabled={isUploading || !files}>
-                  {isUploading ? 'Загрузка...' : 'Загрузить'}
+                <Button 
+                  onClick={uploadFromFiles} 
+                  disabled={loading || selectedFiles.length === 0}
+                >
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Загрузить {selectedFiles.length} файлов
                 </Button>
               </div>
-            </form>
+            </div>
           </TabsContent>
         </Tabs>
       </DialogContent>

@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, Users, Phone, Mail } from 'lucide-react';
+import { Plus, Edit, Users, Phone, Mail } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Profile = Tables<'profiles'>;
@@ -18,8 +18,7 @@ type Profile = Tables<'profiles'>;
 const roles = {
   agent: 'Агент',
   supervisor: 'Супервизор', 
-  manager: 'Менеджер',
-  admin: 'Администратор',
+  client_admin: 'Администратор клиента',
   platform_admin: 'Администратор платформы'
 };
 
@@ -65,8 +64,13 @@ export function Employees() {
     
     try {
       const employeeData = {
-        ...formData,
-        company_id: 'b0000000-0000-0000-0000-000000000001',
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        email: formData.email,
+        phone: formData.phone,
+        role: formData.role as Profile['role'],
+        team_name: formData.team_name,
+        is_active: formData.is_active,
       };
 
       if (editingEmployee) {
@@ -82,7 +86,6 @@ export function Employees() {
           description: 'Сотрудник обновлен',
         });
       } else {
-        // Для создания нового сотрудника нужно создать пользователя через auth
         toast({
           title: 'Информация',
           description: 'Создание новых сотрудников доступно только через систему регистрации',
@@ -176,9 +179,9 @@ export function Employees() {
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={resetForm} disabled>
+            <Button onClick={resetForm}>
               <Plus className="mr-2 h-4 w-4" />
-              Добавить сотрудника
+              Редактировать сотрудника
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">

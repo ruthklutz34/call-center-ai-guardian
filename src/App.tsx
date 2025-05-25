@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,6 +15,7 @@ import { Rules } from "./pages/Rules";
 import { Knowledge } from "./pages/Knowledge";
 import { Employees } from "./pages/Employees";
 import { Company } from "./pages/Company";
+import { Setup } from "./pages/Setup";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -51,6 +53,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/setup" element={<Setup />} />
           <Route path="/dashboard" element={
             <ProtectedRoute>
               <Dashboard />
