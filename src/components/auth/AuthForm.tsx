@@ -21,7 +21,7 @@ export function AuthForm() {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { error, data } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -32,16 +32,21 @@ export function AuthForm() {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('SignUp error:', error);
+        throw error;
+      }
 
+      console.log('SignUp successful:', data);
       toast({
         title: "Аккаунт создан!",
         description: "Проверьте свою электронную почту для подтверждения.",
       });
     } catch (error: any) {
+      console.error('SignUp failed:', error);
       toast({
         title: "Ошибка",
-        description: error.message,
+        description: error.message || "Произошла ошибка при регистрации",
         variant: "destructive",
       });
     } finally {
@@ -54,21 +59,26 @@ export function AuthForm() {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error, data } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('SignIn error:', error);
+        throw error;
+      }
 
+      console.log('SignIn successful:', data);
       toast({
         title: "Добро пожаловать!",
         description: "Вы успешно вошли в систему.",
       });
     } catch (error: any) {
+      console.error('SignIn failed:', error);
       toast({
         title: "Ошибка",
-        description: error.message,
+        description: error.message || "Неверный email или пароль",
         variant: "destructive",
       });
     } finally {
@@ -103,6 +113,7 @@ export function AuthForm() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    disabled={isLoading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -113,6 +124,7 @@ export function AuthForm() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    disabled={isLoading}
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
@@ -132,6 +144,7 @@ export function AuthForm() {
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       required
+                      disabled={isLoading}
                     />
                   </div>
                   <div className="space-y-2">
@@ -141,6 +154,7 @@ export function AuthForm() {
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       required
+                      disabled={isLoading}
                     />
                   </div>
                 </div>
@@ -153,6 +167,7 @@ export function AuthForm() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    disabled={isLoading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -163,6 +178,7 @@ export function AuthForm() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    disabled={isLoading}
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>

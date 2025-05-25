@@ -27,30 +27,46 @@ export function Dashboard() {
     const fetchStats = async () => {
       try {
         // Получаем общее количество звонков
-        const { count: callsCount } = await supabase
+        const { count: callsCount, error: callsError } = await supabase
           .from('calls')
-          .select('*', { count: 'exact' });
+          .select('*', { count: 'exact', head: true });
+
+        if (callsError) {
+          console.error('Error fetching calls count:', callsError);
+        }
 
         // Получаем средний балл
-        const { data: scores } = await supabase
+        const { data: scores, error: scoresError } = await supabase
           .from('call_scores')
           .select('total_score');
 
-        const averageScore = scores?.length 
-          ? Math.round(scores.reduce((sum, s) => sum + s.total_score, 0) / scores.length)
+        if (scoresError) {
+          console.error('Error fetching scores:', scoresError);
+        }
+
+        const averageScore = scores && scores.length > 0
+          ? Math.round(scores.reduce((sum, s) => sum + (s.total_score || 0), 0) / scores.length)
           : 0;
 
         // Получаем количество активных агентов
-        const { count: agentsCount } = await supabase
+        const { count: agentsCount, error: agentsError } = await supabase
           .from('profiles')
-          .select('*', { count: 'exact' })
+          .select('*', { count: 'exact', head: true })
           .eq('role', 'agent')
           .eq('is_active', true);
 
+        if (agentsError) {
+          console.error('Error fetching agents count:', agentsError);
+        }
+
         // Получаем количество критических ошибок
-        const { data: criticalData } = await supabase
+        const { data: criticalData, error: criticalError } = await supabase
           .from('call_scores')
           .select('critical_fails');
+
+        if (criticalError) {
+          console.error('Error fetching critical fails:', criticalError);
+        }
 
         const totalCriticalFails = criticalData?.reduce((sum, c) => sum + (c.critical_fails || 0), 0) || 0;
 
